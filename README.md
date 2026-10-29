@@ -60,14 +60,14 @@ Stochastic Variational Inference (SVI) is used for Bayesian inference. A guide f
 ```python
 def guide(X, Y):
     slope_loc = pyro.param("slope_loc", torch.tensor(0.0))
-    slope_scale = pyro.param("slope_scale", torch.tensor(1.0), constraint=dist.constraints.positive)
+    slope_scale = pyro.param("slope_scale", torch.tensor(0.1), constraint=dist.constraints.positive)
     intercept_loc = pyro.param("intercept_loc", torch.tensor(0.0))
-    intercept_scale = pyro.param("intercept_scale", torch.tensor(1.0), constraint=dist.constraints.positive)
-    sigma_loc = pyro.param("sigma_loc", torch.tensor(1.0), constraint=dist.constraints.positive)
-
-    slope = pyro.sample("slope", dist.Normal(slope_loc, slope_scale))
-    intercept = pyro.sample("intercept", dist.Normal(intercept_loc, intercept_scale))
-    sigma = pyro.sample("sigma", dist.HalfNormal(sigma_loc))
+    intercept_scale = pyro.param("intercept_scale", torch.tensor(0.1), constraint=dist.constraints.positive)
+    sigma_log_loc = pyro.param("sigma_log_loc", torch.tensor(0.0))
+    sigma_log_scale = pyro.param("sigma_log_scale", torch.tensor(0.1), constraint=dist.constraints.positive)
+    pyro.sample("slope", dist.Normal(slope_loc, slope_scale))
+    pyro.sample("intercept", dist.Normal(intercept_loc, intercept_scale))
+    pyro.sample("sigma", dist.LogNormal(sigma_log_loc, sigma_log_scale))
 ```
 
 ### 4. Training the Model
@@ -78,7 +78,7 @@ SVI optimization is performed to train the Bayesian regression model.
 optim = Adam({"lr": 0.01})
 svi = SVI(model, guide, optim, loss=Trace_ELBO())
 
-num_iterations = 1000
+num_iterations = 3000
 
 for i in range(num_iterations):
     loss = svi.step(X, Y)
@@ -141,6 +141,10 @@ plt.show()
 
 ![Posterior Distributions](images/img.png)
 
-## Reproducibility
+## Reproducibility and validation limits
 
-The notebook calls `pyro.set_rng_seed(0)` before generating data and running SVI, so re-running it top to bottom produces bit-identical posterior mean estimates (verified by running the training loop twice and comparing the output).
+Restart the kernel and run in order. The notebook clears the global Pyro parameter store before seeding; repeated runs therefore do not silently continue an earlier fit. The guide uses a LogNormal posterior approximation with independent location and scale for positive sigma, rather than a HalfNormal with fixed relative uncertainty. 3000 SVI iterations are a bounded demonstration, not a general convergence guarantee.
+
+Run `PYTHONPATH=. pytest tests/ -q` for seeded parameter recovery, same-kernel reset, and posterior predictive checks on synthetic data. These checks do not establish calibration on real data or superiority over another inference method. Compare an OLS estimate as a sanity baseline; variational independence can understate slope/intercept correlation. Use independent sampler validation, multiple seeds and prior sensitivity for research claims. Historical embedded notebook plots/outputs predate these fixes and are not regenerated results.
+
+`requirements-tested.txt` records the locally tested versions; it is an execution profile, not a cross-platform lock. Reproducibility is scoped to the tested environment, not guaranteed bit-identical across PyTorch/devices.
