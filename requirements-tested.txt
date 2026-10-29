@@ -1,0 +1,6 @@
+# Tested locally on Python 3.13.5; execution profile, not a cross-platform lock.
+torch==2.9.0
+pyro-ppl==1.9.1
+matplotlib==3.9.3
+seaborn==0.12.2
+pytest==9.2.0
